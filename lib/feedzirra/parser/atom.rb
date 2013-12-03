@@ -1,5 +1,4 @@
 module Feedzirra
-
   module Parser
     # Parser for dealing with Atom feeds.
     class Atom
@@ -24,7 +23,52 @@ module Feedzirra
       def feed_url
         @feed_url ||= links.first
       end
+
+      def self.parse(xml, on_error = nil, on_warning = nil)
+        xml = preprocess(xml) if self.preprocess_xml
+        super xml, on_error, on_warning
+      end
+
+      def self.preprocess(xml)
+        Preprocessor.new(xml).to_xml
+      end
+
+      def self.preprocess_xml=(value)
+        @preprocess_xml = value
+      end
+
+      def self.preprocess_xml
+        @preprocess_xml
+      end
+
+      class Preprocessor
+        def initialize(xml)
+          @xml = xml
+        end
+
+        def to_xml
+          process_nodes
+          doc.to_xml
+        end
+
+        private
+
+        def process_nodes
+          nodes.each { |node| node.content = raw_html(node) unless node.cdata? }
+        end
+
+        def nodes
+          doc.search 'entry > content[type="xhtml"]'
+        end
+
+        def raw_html(node)
+          CGI.unescape_html node.inner_html
+        end
+
+        def doc
+          @doc ||= Nokogiri::XML @xml
+        end
+      end
     end
   end
-
 end
